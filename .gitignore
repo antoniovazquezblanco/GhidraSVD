@@ -1,0 +1,10 @@
+bin/
+dist/
+build/
+.classpath
+.project
+.pydevproject
+.gradle
+.settings
+.idea
+.DS_Store
