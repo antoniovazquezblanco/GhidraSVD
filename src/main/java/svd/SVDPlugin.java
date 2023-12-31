@@ -40,6 +40,7 @@ import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOverflowException;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.StructureDataType;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
@@ -98,23 +99,28 @@ public class SVDPlugin extends ProgramPlugin {
 		
 		for (SvdPeripheral periph : device.getPeripherals()) {
 			Msg.info(getClass(), "Processing " + periph.getName() + " peripheral...");
-			createPeripheralMemorySection(program, periph);
-			createPeripheralDataType(periph);
+			processPeripheral(program, periph);
 		}
 	}
 	
-	private void createPeripheralMemorySection(Program program, SvdPeripheral periph) {
-		Memory memory = program.getMemory();
-		AddressSpace addrSpace = program.getAddressFactory().getDefaultAddressSpace();
+	private void processPeripheral(Program program, SvdPeripheral periph) {
 		String periphName = periph.getName();
 		for (SvdAddressBlock addrBlock : periph.getAddressBlocks()) {
 			String blockUsage = addrBlock.getUsage();
 			String regionName = periphName + ((blockUsage != null && !blockUsage.isEmpty()) ? ("_" + blockUsage) : "");
-			Address addr = addrSpace.getAddress(periph.getBaseAddr() + addrBlock.getOffset());
-			int transactionId = program.startTransaction("SVD memory block creation");
-			boolean ok = createMemoryRegion(memory, regionName, addr, addrBlock.getSize());
-			program.endTransaction(transactionId, ok);
+
+			createPeripheralBlockMemoryRegion(program, periph, addrBlock, regionName);
+			createPeripheralBlockDataType(periph, addrBlock, regionName);
 		}
+	}
+
+	private void createPeripheralBlockMemoryRegion(Program program, SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
+		Memory memory = program.getMemory();
+		AddressSpace addrSpace = program.getAddressFactory().getDefaultAddressSpace();
+		Address addr = addrSpace.getAddress(periph.getBaseAddr() + addrBlock.getOffset());
+		int transactionId = program.startTransaction("SVD memory block creation");
+		boolean ok = createMemoryRegion(memory, regionName, addr, addrBlock.getSize());
+		program.endTransaction(transactionId, ok);
 	}
 
 	private boolean createMemoryRegion(Memory memory, String name, Address addr, Long size) {
@@ -145,7 +151,7 @@ public class SVDPlugin extends ProgramPlugin {
 		return false;
 	}
 
-	private void createPeripheralDataType(SvdPeripheral p) {
+	private void createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
 		// TODO
 	}
 	
