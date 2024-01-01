@@ -40,17 +40,28 @@ import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOverflowException;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.DataTypeConflictHandler;
+import ghidra.program.model.data.ProgramBasedDataTypeManager;
 import ghidra.program.model.data.StructureDataType;
+import ghidra.program.model.data.UnsignedLongDataType;
+import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.mem.MemoryConflictException;
+import ghidra.program.model.symbol.Namespace;
+import ghidra.program.model.symbol.SourceType;
+import ghidra.program.model.symbol.SymbolTable;
+import ghidra.program.model.util.CodeUnitInsertionException;
 import ghidra.util.Msg;
+import ghidra.util.exception.DuplicateNameException;
+import ghidra.util.exception.InvalidInputException;
 import ghidra.util.filechooser.ExtensionFileFilter;
 import io.svdparser.SvdAddressBlock;
 import io.svdparser.SvdDevice;
 import io.svdparser.SvdParserException;
 import io.svdparser.SvdPeripheral;
+import io.svdparser.SvdRegister;
 
 //@formatter:off
 @PluginInfo(
@@ -110,7 +121,7 @@ public class SVDPlugin extends ProgramPlugin {
 			String regionName = periphName + ((blockUsage != null && !blockUsage.isEmpty()) ? ("_" + blockUsage) : "");
 
 			createPeripheralBlockMemoryRegion(program, periph, addrBlock, regionName);
-			createPeripheralBlockDataType(periph, addrBlock, regionName);
+			createAndApplyPeripheralBlockDataType(program, periph, addrBlock, regionName);
 		}
 	}
 
@@ -151,10 +162,64 @@ public class SVDPlugin extends ProgramPlugin {
 		return false;
 	}
 
-	private void createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
-		// TODO
+	private Namespace getOrCreateNamespace(Program program, String name) {
+		SymbolTable symTable = program.getSymbolTable();
+		Namespace namespace = symTable.getNamespace(name, null);
+		if (namespace != null)
+			return namespace;
+		try {
+			return symTable.createNameSpace(null, name, SourceType.IMPORTED);
+		} catch (DuplicateNameException | InvalidInputException e) {
+			return null;
+		}
 	}
 	
+	private void createAndApplyPeripheralBlockDataType(Program program, SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
+		StructureDataType struct = createPeripheralBlockDataType(periph, addrBlock, regionName);
+
+		// Add struct to the data type manager...
+		ProgramBasedDataTypeManager dataTypeManager = program.getDataTypeManager();
+		dataTypeManager.addDataType(struct, DataTypeConflictHandler.REPLACE_HANDLER);
+		
+		// Calculate address of the block...
+		AddressSpace addrSpace = program.getAddressFactory().getDefaultAddressSpace();
+		Address addr = addrSpace.getAddress(periph.getBaseAddr() + addrBlock.getOffset());
+		
+		// Create a symbol name...
+		SymbolTable symTable = program.getSymbolTable();
+		Namespace namespace = getOrCreateNamespace(program, "Peripherals");
+		try {
+			symTable.createLabel(addr, regionName, namespace, SourceType.IMPORTED);
+		} catch (InvalidInputException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		// Add data type to listing...
+		Listing listing = program.getListing();
+		try {
+			listing.createData(addr, struct);
+		} catch (CodeUnitInsertionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private StructureDataType createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
+		StructureDataType struct = new StructureDataType(regionName, addrBlock.getSize().intValue());
+
+		Long addrBlockStart = addrBlock.getOffset();
+		Long addrBlockEnd = addrBlockStart + addrBlock.getSize();
+
+		for (SvdRegister reg : periph.getRegisters()) {
+			if (reg.getOffset() < addrBlockStart || reg.getOffset() > addrBlockEnd)
+				continue;
+			struct.replaceAtOffset(reg.getOffset(), new UnsignedLongDataType(), reg.getSize()/8, reg.getName(), reg.getDescription());
+		}
+		
+		return struct;
+	}
+
 	private File getSvdFileFromDialog(JComponent parent) {
 		GhidraFileChooser chooser = new GhidraFileChooser(parent);
 		chooser.addFileFilter(ExtensionFileFilter.forExtensions("SVD", "svd"));
