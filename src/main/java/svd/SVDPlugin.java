@@ -19,15 +19,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 
-import javax.swing.JComponent;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.SAXException;
 
 import docking.action.builder.ActionBuilder;
 import docking.tool.ToolConstants;
-import docking.widgets.filechooser.GhidraFileChooser;
-import docking.widgets.filechooser.GhidraFileChooserMode;
 import ghidra.app.CorePluginPackage;
 import ghidra.app.context.ProgramActionContext;
 import ghidra.app.plugin.PluginCategoryNames;
@@ -36,7 +33,6 @@ import ghidra.app.plugin.core.analysis.AutoAnalysisManager;
 import ghidra.framework.plugintool.PluginInfo;
 import ghidra.framework.plugintool.PluginTool;
 import ghidra.framework.plugintool.util.PluginStatus;
-import ghidra.framework.preferences.Preferences;
 import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOverflowException;
@@ -46,7 +42,6 @@ import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.mem.MemoryConflictException;
 import ghidra.util.Msg;
-import ghidra.util.filechooser.ExtensionFileFilter;
 import io.svdparser.SvdAddressBlock;
 import io.svdparser.SvdDevice;
 import io.svdparser.SvdParserException;
@@ -62,7 +57,6 @@ import io.svdparser.SvdPeripheral;
 )
 //@formatter:on
 public class SVDPlugin extends ProgramPlugin {
-	private static final String LAST_SVDFILE_PREFERENCE_KEY = "Svd.LastFile";
 
 	public SVDPlugin(PluginTool tool) {
 		super(tool);
@@ -83,7 +77,7 @@ public class SVDPlugin extends ProgramPlugin {
 			return;
 		}
 
-		File file = getSvdFileFromDialog(pac.getComponentProvider().getComponent());
+		File file = SvdFileDialog.getSvdFileFromDialog(pac.getComponentProvider().getComponent());
 		if (file == null)
 			return;
 
@@ -182,28 +176,5 @@ public class SVDPlugin extends ProgramPlugin {
 
 	private void createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
 		// TODO
-	}
-
-	private File getSvdFileFromDialog(JComponent parent) {
-		GhidraFileChooser chooser = new GhidraFileChooser(parent);
-		chooser.addFileFilter(ExtensionFileFilter.forExtensions("SVD", "svd"));
-		chooser.setMultiSelectionEnabled(false);
-		chooser.setApproveButtonText("Choose");
-		chooser.setFileSelectionMode(GhidraFileChooserMode.FILES_ONLY);
-		chooser.setTitle("Select SVD");
-
-		String lastFile = Preferences.getProperty(LAST_SVDFILE_PREFERENCE_KEY);
-		if (lastFile != null) {
-			chooser.setSelectedFile(new File(lastFile));
-		}
-
-		File file = chooser.getSelectedFile();
-		chooser.dispose();
-
-		if (file == null || !file.isFile())
-			return null;
-
-		Preferences.setProperty(LAST_SVDFILE_PREFERENCE_KEY, file.getPath());
-		return file;
 	}
 }
