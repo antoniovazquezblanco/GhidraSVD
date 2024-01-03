@@ -52,5 +52,5 @@ repositories {
 }
 
 dependencies {
-	implementation 'io.github.antoniovazquezblanco:svd-parser:v0.0.1'
+	implementation 'io.github.antoniovazquezblanco:svd-parser:v0.0.3'
 }
