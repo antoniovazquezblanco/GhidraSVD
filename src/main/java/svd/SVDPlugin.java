@@ -17,14 +17,17 @@ package svd;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
+import javax.swing.JComponent;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.xml.sax.SAXException;
 
 import docking.action.builder.ActionBuilder;
 import docking.tool.ToolConstants;
+import docking.widgets.OptionDialog;
 import ghidra.app.CorePluginPackage;
 import ghidra.app.context.ProgramActionContext;
 import ghidra.app.plugin.PluginCategoryNames;
@@ -46,6 +49,7 @@ import io.svdparser.SvdAddressBlock;
 import io.svdparser.SvdDevice;
 import io.svdparser.SvdParserException;
 import io.svdparser.SvdPeripheral;
+import svd.MemoryUtils.MemRangeRelation;
 
 //@formatter:off
 @PluginInfo(
@@ -77,7 +81,8 @@ public class SVDPlugin extends ProgramPlugin {
 			return;
 		}
 
-		File file = SvdFileDialog.getSvdFileFromDialog(pac.getComponentProvider().getComponent());
+		JComponent parentComponent = pac.getComponentProvider().getComponent();
+		File file = SvdFileDialog.getSvdFileFromDialog(parentComponent);
 		if (file == null)
 			return;
 
@@ -91,73 +96,88 @@ public class SVDPlugin extends ProgramPlugin {
 			return;
 		}
 
+		Map<Block, BlockInfo> blocks = createBlocksFromDevice(device);
+
+		for (BlockInfo blockInfo : blocks.values()) {
+			Msg.info(getClass(), "Processing " + blockInfo.name + "...");
+			processBlock(parentComponent, program, blockInfo);
+		}
+	}
+
+	private Map<Block, BlockInfo> createBlocksFromDevice(SvdDevice device) {
+		Map<Block, BlockInfo> blocks = new HashMap<Block, BlockInfo>();
+
+		// Convert all peripherals to blocks...
 		for (SvdPeripheral periph : device.getPeripherals()) {
-			Msg.info(getClass(), "Processing " + periph.getName() + " peripheral...");
-			processPeripheral(program, periph);
+			for (SvdAddressBlock block : periph.getAddressBlocks()) {
+				// Create a block..
+				Block b = new Block(periph.getBaseAddr() + block.getOffset(), block.getSize());
+
+				// Check if block exists...
+				BlockInfo bInfo = blocks.get(b);
+				if (bInfo == null)
+					bInfo = new BlockInfo();
+
+				// Fill in block info...
+				if (bInfo.block == null)
+					bInfo.block = b;
+				String name = getPeriphBlockName(periph, block);
+				if (bInfo.name == null)
+					bInfo.name = name;
+				else
+					bInfo.name += "/" + name;
+				bInfo.isReadable = true;
+				bInfo.isWritable = true;
+				bInfo.isExecutable = name.contains("RAM") || name.contains("memory");
+				bInfo.isVolatile = !bInfo.isExecutable;
+				bInfo.peripherals.add(periph);
+
+				// Save the data...
+				blocks.put(b, bInfo);
+			}
 		}
+		return blocks;
 	}
 
-	private void processPeripheral(Program program, SvdPeripheral periph) {
-		String periphName = periph.getName();
-		for (SvdAddressBlock addrBlock : periph.getAddressBlocks()) {
-			String blockUsage = addrBlock.getUsage();
-			String regionName = periphName + ((blockUsage != null && !blockUsage.isEmpty()) ? ("_" + blockUsage) : "");
-
-			createPeripheralBlockMemoryRegion(program, periph, addrBlock, regionName);
-			createPeripheralBlockDataType(periph, addrBlock, regionName);
+	private String getPeriphBlockName(SvdPeripheral periph, SvdAddressBlock block) {
+		String name = periph.getName();
+		String blockUsage = block.getUsage();
+		if (blockUsage != null && !blockUsage.isEmpty() && !blockUsage.contains("registers")) {
+			name += "_" + blockUsage;
 		}
+		return name;
 	}
 
-	private String getMemoryProperties(String name) {
-		String properties = "rw";
-		if (name.contains("RAM") || name.contains("memory")) {
-			properties += 'e';
+	private void processBlock(JComponent parentComponent, Program program, BlockInfo blockInfo) {
+		Memory memory = program.getMemory();
+		MemoryBlock[] collidingMemoryBlocks = MemoryUtils.getBlockCollidingMemoryBlocks(memory, blockInfo.block);
+		if (collidingMemoryBlocks.length == 0) {
+			createMemoryBlock(program, blockInfo);
+		} else if (collidingMemoryBlocks.length == 1 && MemoryUtils.getMemoryBlockRelation(collidingMemoryBlocks[0],
+				blockInfo.block) == MemRangeRelation.RANGES_ARE_EQUAL) {
+			updateMatchingMemoryBlock(parentComponent, program, collidingMemoryBlocks[0], blockInfo);
 		} else {
-			properties += 'v';
+			Msg.showWarn(getClass(), null, "Load SVD", "Could not create a region for " + blockInfo.name + "@"
+					+ String.format("0x%08x", blockInfo.block.getAddress()) + "+"
+					+ String.format("0x%08x", blockInfo.block.getSize()) + ". It conflicts with an existing region!");
 		}
-		return properties;
 	}
 
-	private void createPeripheralBlockMemoryRegion(Program program, SvdPeripheral periph, SvdAddressBlock addrBlock,
-			String regionName) {
+	private void createMemoryBlock(Program program, BlockInfo blockInfo) {
 		Memory memory = program.getMemory();
 		AddressSpace addrSpace = program.getAddressFactory().getDefaultAddressSpace();
-		Long addr = periph.getBaseAddr() + addrBlock.getOffset();
-		Long size = addrBlock.getSize();
-
-		MemoryBlock[] collidingBlocks = getCollidingMemoryBlocks(memory, addr, size);
-		if (collidingBlocks.length == 0) {
-			int transactionId = program.startTransaction("SVD memory block creation");
-			boolean ok = createMemoryRegion(memory, regionName, addrSpace.getAddress(addr), size);
-			program.endTransaction(transactionId, ok);
-		} else {
-			Msg.error(getClass(),
-					"Could not create a region for " + name + "@" + String.format("0x%08x", addr) + "+"
-							+ String.format("0x%08x", size) + ". It conflicts with an existing region!");
-		}
-	}
-
-	private MemoryBlock[] getCollidingMemoryBlocks(Memory memory, Long address, Long size) {
-		return Arrays.stream(memory.getBlocks())
-				.filter(x -> doesMemoryBlockCollide(x, address, address + size)).toArray(MemoryBlock[]::new);
-	}
-
-	private boolean doesMemoryBlockCollide(MemoryBlock block, Long regionStart, Long regionEnd) {
-		Long blockStart = block.getStart().getOffset();
-		Long blockEnd = block.getEnd().getOffset();
-		return (regionStart <= blockEnd && regionEnd >= blockStart);
-	}
-
-	private boolean createMemoryRegion(Memory memory, String name, Address addr, Long size) {
+		Address addr = addrSpace.getAddress(blockInfo.block.getAddress());
+		int transactionId = program.startTransaction("SVD memory block creation");
+		boolean ok = false;
 		try {
-			String memProperties = getMemoryProperties(name);
-			MemoryBlock memBlock = memory.createUninitializedBlock(name, addr, size, false);
-			memBlock.setRead(memProperties.contains("r"));
-			memBlock.setWrite(memProperties.contains("w"));
-			memBlock.setExecute(memProperties.contains("e"));
-			memBlock.setVolatile(memProperties.contains("v"));
+			MemoryBlock memBlock = memory.createUninitializedBlock(name, addr, blockInfo.block.getSize().longValue(),
+					false);
+			memBlock.setRead(blockInfo.isReadable);
+			memBlock.setWrite(blockInfo.isWritable);
+			memBlock.setExecute(blockInfo.isExecutable);
+			memBlock.setVolatile(blockInfo.isVolatile);
 			memBlock.setComment("Generated by Device Tree Blob");
-			return true;
+			ok = true;
 		} catch (MemoryConflictException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -171,10 +191,108 @@ public class SVDPlugin extends ProgramPlugin {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return false;
+		program.endTransaction(transactionId, ok);
 	}
 
-	private void createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock addrBlock, String regionName) {
-		// TODO
+	private void updateMatchingMemoryBlock(JComponent parentComponent, Program program,
+			MemoryBlock collidingMemoryBlock, BlockInfo blockInfo) {
+		if (!collidingMemoryBlock.getName().equals(blockInfo.name)
+				&& OptionDialog.showYesNoDialog(parentComponent, "Load SVD",
+						"An existing memory block with name \"" + collidingMemoryBlock.getName()
+								+ "\" is in the same region as the \"" + blockInfo.name
+								+ "\" peripheral. Do you want to rename it to \"" + blockInfo.name
+								+ "\"?") == OptionDialog.OPTION_ONE) {
+			int transactionId = program.startTransaction("SVD memory block rename");
+			boolean ok = false;
+			try {
+				collidingMemoryBlock.setName(blockInfo.name);
+				collidingMemoryBlock.setComment("Changed by Device Tree Blob");
+				ok = true;
+			} catch (IllegalArgumentException | LockException e) {
+				e.printStackTrace();
+			}
+			program.endTransaction(transactionId, ok);
+		}
+		if (collidingMemoryBlock.isRead() != blockInfo.isReadable && OptionDialog.showYesNoDialog(parentComponent,
+				"Load SVD",
+				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
+						+ ((!collidingMemoryBlock.isRead()) ? " non" : "")
+						+ " readable. The SVD file suggests it should be"
+						+ (collidingMemoryBlock.isRead() ? " non" : "") + " readable. Do you want to changee it to"
+						+ (collidingMemoryBlock.isRead() ? " non" : "") + " readable?") == OptionDialog.OPTION_ONE) {
+			int transactionId = program
+					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
+			boolean ok = false;
+			try {
+				collidingMemoryBlock.setRead(blockInfo.isReadable);
+				collidingMemoryBlock.setComment("Changed by Device Tree Blob");
+				ok = true;
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+			program.endTransaction(transactionId, ok);
+		}
+
+		if (collidingMemoryBlock.isWrite() != blockInfo.isWritable && OptionDialog.showYesNoDialog(parentComponent,
+				"Load SVD",
+				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
+						+ ((!collidingMemoryBlock.isWrite()) ? " non" : "")
+						+ " writable. The SVD file suggests it should be"
+						+ (collidingMemoryBlock.isWrite() ? " non" : "") + " writable. Do you want to changee it to"
+						+ (collidingMemoryBlock.isWrite() ? " non" : "") + " writable?") == OptionDialog.OPTION_ONE) {
+			int transactionId = program
+					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
+			boolean ok = false;
+			try {
+				collidingMemoryBlock.setWrite(blockInfo.isWritable);
+				collidingMemoryBlock.setComment("Changed by Device Tree Blob");
+				ok = true;
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+			program.endTransaction(transactionId, ok);
+		}
+
+		if (collidingMemoryBlock.isExecute() != blockInfo.isExecutable && OptionDialog.showYesNoDialog(parentComponent,
+				"Load SVD",
+				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
+						+ ((!collidingMemoryBlock.isExecute()) ? " non" : "")
+						+ " executable. The SVD file suggests it should be"
+						+ (collidingMemoryBlock.isExecute() ? " non" : "") + " executable. Do you want to changee it to"
+						+ (collidingMemoryBlock.isExecute() ? " non" : "")
+						+ " executable?") == OptionDialog.OPTION_ONE) {
+			int transactionId = program
+					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
+			boolean ok = false;
+			try {
+				collidingMemoryBlock.setExecute(blockInfo.isExecutable);
+				collidingMemoryBlock.setComment("Changed by Device Tree Blob");
+				ok = true;
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+			program.endTransaction(transactionId, ok);
+		}
+
+		if (collidingMemoryBlock.isVolatile() != blockInfo.isVolatile && OptionDialog.showYesNoDialog(parentComponent,
+				"Load SVD",
+				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
+						+ ((!collidingMemoryBlock.isVolatile()) ? " non" : "")
+						+ " volatile. The SVD file suggests it should be"
+						+ (collidingMemoryBlock.isVolatile() ? " non" : "") + " volatile. Do you want to changee it to"
+						+ (collidingMemoryBlock.isVolatile() ? " non" : "")
+						+ " volatile?") == OptionDialog.OPTION_ONE) {
+			int transactionId = program
+					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
+			boolean ok = false;
+			try {
+				collidingMemoryBlock.setVolatile(blockInfo.isVolatile);
+				collidingMemoryBlock.setComment("Changed by Device Tree Blob");
+				ok = true;
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			}
+			program.endTransaction(transactionId, ok);
+		}
 	}
 }
