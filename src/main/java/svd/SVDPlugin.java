@@ -40,15 +40,27 @@ import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOverflowException;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.DataTypeConflictHandler;
+import ghidra.program.model.data.ProgramBasedDataTypeManager;
+import ghidra.program.model.data.StructureDataType;
+import ghidra.program.model.data.UnsignedLongDataType;
+import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.mem.MemoryConflictException;
+import ghidra.program.model.symbol.Namespace;
+import ghidra.program.model.symbol.SourceType;
+import ghidra.program.model.symbol.SymbolTable;
+import ghidra.program.model.util.CodeUnitInsertionException;
 import ghidra.util.Msg;
+import ghidra.util.exception.DuplicateNameException;
+import ghidra.util.exception.InvalidInputException;
 import io.svdparser.SvdAddressBlock;
 import io.svdparser.SvdDevice;
 import io.svdparser.SvdParserException;
 import io.svdparser.SvdPeripheral;
+import io.svdparser.SvdRegister;
 import svd.MemoryUtils.MemRangeRelation;
 
 //@formatter:off
@@ -149,6 +161,14 @@ public class SVDPlugin extends ProgramPlugin {
 	}
 
 	private void processBlock(JComponent parentComponent, Program program, BlockInfo blockInfo) {
+		boolean memOk = processBlockMemory(parentComponent, program, blockInfo);
+		if (memOk) {
+			processBlockSymbol(program, blockInfo);
+			processBlockDataTypes(program, blockInfo);
+		}
+	}
+
+	private boolean processBlockMemory(JComponent parentComponent, Program program, BlockInfo blockInfo) {
 		Memory memory = program.getMemory();
 		MemoryBlock[] collidingMemoryBlocks = MemoryUtils.getBlockCollidingMemoryBlocks(memory, blockInfo.block);
 		if (collidingMemoryBlocks.length == 0) {
@@ -160,7 +180,9 @@ public class SVDPlugin extends ProgramPlugin {
 			Msg.showWarn(getClass(), null, "Load SVD", "Could not create a region for " + blockInfo.name + "@"
 					+ String.format("0x%08x", blockInfo.block.getAddress()) + "+"
 					+ String.format("0x%08x", blockInfo.block.getSize()) + ". It conflicts with an existing region!");
+			return false;
 		}
+		return true;
 	}
 
 	private void createMemoryBlock(Program program, BlockInfo blockInfo) {
@@ -294,5 +316,88 @@ public class SVDPlugin extends ProgramPlugin {
 			}
 			program.endTransaction(transactionId, ok);
 		}
+	}
+
+	private void processBlockSymbol(Program program, BlockInfo blockInfo) {
+		// Calculate address of the block...
+		AddressSpace addrSpace = program.getAddressFactory().getDefaultAddressSpace();
+		Address addr = addrSpace.getAddress(blockInfo.block.getAddress().longValue());
+
+		// Create a symbol name...
+		SymbolTable symTable = program.getSymbolTable();
+		Namespace namespace = getOrCreateNamespace(program, "Peripherals");
+		int transactionId = program.startTransaction("SVD " + blockInfo.name + " symtable creation");
+		boolean ok = false;
+		try {
+			symTable.createLabel(addr, blockInfo.name.replace('/', '_'), namespace, SourceType.IMPORTED);
+			ok = true;
+		} catch (InvalidInputException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		program.endTransaction(transactionId, ok);
+	}
+
+	private Namespace getOrCreateNamespace(Program program, String name) {
+		SymbolTable symTable = program.getSymbolTable();
+		Namespace namespace = symTable.getNamespace(name, null);
+		if (namespace != null)
+			return namespace;
+
+		int transactionId = program.startTransaction("SVD " + name + " namespace creation");
+		boolean ok = false;
+		try {
+			namespace = symTable.createNameSpace(null, name, SourceType.IMPORTED);
+			ok = true;
+		} catch (DuplicateNameException | InvalidInputException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		program.endTransaction(transactionId, ok);
+		return namespace;
+	}
+
+	private void processBlockDataTypes(Program program, BlockInfo blockInfo) {
+		StructureDataType struct = createPeripheralBlockDataType(blockInfo);
+
+		// Add struct to the data type manager...
+		ProgramBasedDataTypeManager dataTypeManager = program.getDataTypeManager();
+		int transactionId = program.startTransaction("SVD " + blockInfo.name + " data type creation");
+		boolean ok = false;
+		try {
+			dataTypeManager.addDataType(struct, DataTypeConflictHandler.REPLACE_HANDLER);
+			ok = true;
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+		}
+		program.endTransaction(transactionId, ok);
+
+		// Calculate address of the block...
+		AddressSpace addrSpace = program.getAddressFactory().getDefaultAddressSpace();
+		Address addr = addrSpace.getAddress(blockInfo.block.getAddress().longValue());
+
+		// Add data type to listing...
+		Listing listing = program.getListing();
+		transactionId = program.startTransaction("SVD " + blockInfo.name + " data type listing placement");
+		ok = false;
+		try {
+			listing.createData(addr, struct);
+			ok = true;
+		} catch (CodeUnitInsertionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		program.endTransaction(transactionId, ok);
+	}
+
+	private StructureDataType createPeripheralBlockDataType(BlockInfo blockInfo) {
+		String struct_name = blockInfo.name.replace('/', '_') + "_reg_t";
+		StructureDataType struct = new StructureDataType(struct_name, blockInfo.block.getSize().intValue());
+		for (SvdPeripheral periph : blockInfo.peripherals)
+			for (SvdRegister reg : periph.getRegisters())
+				if (reg.getOffset() < blockInfo.block.getSize())
+					struct.replaceAtOffset(reg.getOffset(), new UnsignedLongDataType(), reg.getSize() / 8,
+							reg.getName(), reg.getDescription());
+		return struct;
 	}
 }
