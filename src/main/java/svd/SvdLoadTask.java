@@ -91,11 +91,9 @@ public class SvdLoadTask extends Task {
 		monitor.checkCancelled();
 		Map<Block, BlockInfo> blocks = createBlocksFromDevice(device);
 
-		monitor.setMaximum(blocks.size());
 		for (BlockInfo blockInfo : blocks.values()) {
 			monitor.setMessage("Processing " + blockInfo.name + "...");
 			processBlock(blockInfo);
-			monitor.increment();
 		}
 	}
 
