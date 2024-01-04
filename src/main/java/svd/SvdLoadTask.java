@@ -17,8 +17,6 @@ package svd;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -80,10 +78,7 @@ public class SvdLoadTask extends Task {
 		try {
 			device = SvdDevice.fromFile(mSvdFile);
 		} catch (SvdParserException | SAXException | IOException | ParserConfigurationException e) {
-			StringWriter sw = new StringWriter();
-			PrintWriter pw = new PrintWriter(sw);
-			e.printStackTrace(pw);
-			Msg.showWarn(getClass(), null, "Load SVD", "Unable to load SVD file!\n" + sw.toString());
+			Msg.error(getClass(), "Unable to load SVD file!", e);
 			return;
 		}
 
@@ -93,6 +88,7 @@ public class SvdLoadTask extends Task {
 
 		for (BlockInfo blockInfo : blocks.values()) {
 			monitor.setMessage("Processing " + blockInfo.name + "...");
+			monitor.checkCancelled();
 			processBlock(blockInfo);
 		}
 	}

@@ -64,11 +64,13 @@ public class SVDPlugin extends ProgramPlugin {
 			Msg.showWarn(getClass(), null, "Load SVD", "Unable to load SVD file while analysis is running.");
 			return;
 		}
+		
+		tool.setStatusInfo("Loading SVD.");
 
 		JComponent parentComponent = pac.getComponentProvider().getComponent();
 		File file = SvdFileDialog.getSvdFileFromDialog(parentComponent);
 		if (file == null) {
-			tool.setStatusInfo("Loading SVD was cancelled.");
+			tool.setStatusInfo("SVD loading was cancelled.");
 			return;
 		}
 		
