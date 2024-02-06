@@ -28,23 +28,23 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Install Gradle
+      uses: gradle/actions/setup-gradle@v3
+
     - name: Install Ghidra ${{ matrix.ghidra }}
       uses: antoniovazquezblanco/setup-ghidra@v1.2.0
       with:
         auth_token: ${{ secrets.GITHUB_TOKEN }}
         version: ${{ matrix.ghidra }}
 
-    - name: Build the extension for Ghidra ${{ matrix.ghidra }}
-      uses: gradle/gradle-build-action@v2.12.0
-      with:
-        gradle-version: 7.3
-        arguments: -PGHIDRA_INSTALL_DIR=${{ env.GHIDRA_INSTALL_DIR }}
+    - name: Build
+      run: gradle -PGHIDRA_INSTALL_DIR=${{ env.GHIDRA_INSTALL_DIR }}
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: SVD_Ghidra_${{ matrix.ghidra }}
-        path: dist/*GhidraSVD.zip
+        path: dist/*.zip
 
   release:
     runs-on: "ubuntu-latest"
@@ -66,7 +66,7 @@ jobs:
         automatic_release_tag: "latest"
         prerelease: true
         title: "Ghidra SVD Nightly (${{steps.date.outputs.date}})"
-        files: SVD_Ghidra_*/*GhidraSVD.zip
+        files: SVD_Ghidra_*/*.zip
 
     - name: Release stable
       if: contains(github.ref, 'refs/tags/v')
@@ -75,4 +75,4 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: false
         title: "Ghidra SVD ${{github.ref_name}}"
-        files: SVD_Ghidra_*/*GhidraSVD.zip
+        files: SVD_Ghidra_*/*.zip

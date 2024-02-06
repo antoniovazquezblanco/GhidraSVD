@@ -33,6 +33,9 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Install Gradle
+      uses: gradle/actions/setup-gradle@v3
+
     - name: Install Ghidra
       uses: antoniovazquezblanco/setup-ghidra@v1.2.0
       with:
