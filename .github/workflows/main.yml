@@ -30,7 +30,7 @@ jobs:
         java-version: '17'
 
     - name: Install Gradle
-      uses: gradle/actions/setup-gradle@v3
+      uses: gradle/actions/setup-gradle@v321
 
     - name: Install Ghidra ${{ matrix.ghidra }}
       uses: antoniovazquezblanco/setup-ghidra@v1.2.1
