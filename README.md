@@ -19,6 +19,19 @@ In a CodeBrowser window press `File` > `Import SVD...`.
 
 A file dialog will allow you to select your SVD file and import it. Memory map will automatically be updated.
 
+You may find SVD file sources in the following table:
+
+| Manufacturer  | URL                                                                   | Notes                     |
+|:--------------|:----------------------------------------------------------------------|:--------------------------|
+| Espressif     | https://github.com/espressif/svd                                      |                           |
+| ST            | https://github.com/modm-io/cmsis-svd-stm32                            |                           |
+| ST            | https://github.com/morbos/STM32                                       |                           |
+| NXP           | https://github.com/Masmiseim36/nxpSDK/tree/master/devices             | May have XML extension    |
+| NXP           | https://mcuxpresso.nxp.com/en/welcome                                 | May have XML extension    |
+| Various/ARM   | https://www.keil.arm.com/devices/                                     |                           |
+| Various/ARM   | https://github.com/ARM-software/CMSIS_4/tree/master/Device/ARM/SVD    |                           |
+| Various/ARM   | https://github.com/ARM-software/CMSIS_5/tree/develop/Device/ARM/SVD   |                           |
+| Various/ARM   | https://github.com/ARM-software/Cortex_DFP/tree/main/SVD              |                           |
 
 ## Development
 
