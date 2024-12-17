@@ -12,9 +12,9 @@ This is the preferred way to generate memory maps, but if no SVD files are avail
 
 ## Installing
 
-Go to the [releases page](https://github.com/antoniovazquezblanco/GhidraSVD/releases) and download the latest version for your Ghidra distribution.
+This extension is available for installation via the [Ghidra Extension Manager](https://github.com/antoniovazquezblanco/GhidraExtensionManager).
 
-In Ghidra main window go to `File` > `Install extensions...`. In the new window press the `+` icon to import the downloaded zip.
+You may also install this extension by going to the [releases page](https://github.com/antoniovazquezblanco/GhidraSVD/releases) and downloading the latest version for your Ghidra distribution. In order to install from the release, in Ghidra main window go to `File` > `Install extensions...`. In the new window press the `+` icon to import the downloaded zip.
 
 
 ## Usage
