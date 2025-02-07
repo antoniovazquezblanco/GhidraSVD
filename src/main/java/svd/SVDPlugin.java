@@ -16,9 +16,13 @@
 package svd;
 
 import java.io.File;
+import java.io.IOException;
 
 import javax.swing.JComponent;
 import javax.swing.SwingConstants;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.xml.sax.SAXException;
 
 import docking.action.builder.ActionBuilder;
 import docking.tool.ToolConstants;
@@ -34,6 +38,10 @@ import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 import ghidra.util.task.TaskBuilder;
 import ghidra.util.task.TaskLauncher;
+import io.svdparser.SvdDevice;
+import io.svdparser.SvdParserException;
+import svd.ui.SvdFileDialog;
+import svd.ui.SvdInfoDialog;
 
 //@formatter:off
 @PluginInfo(
@@ -54,17 +62,33 @@ public class SVDPlugin extends ProgramPlugin {
 	private void createActions() {
 		new ActionBuilder("Load SVD File", this.getName()).withContext(ProgramActionContext.class)
 				.validContextWhen(pac -> pac.getProgram() != null).menuPath(ToolConstants.MENU_FILE, "Load SVD File...")
-				.menuGroup("Import SVD", "5").onAction(pac -> loadSvd(pac)).buildAndInstall(tool);
+				.menuGroup("Import SVD", "5").onAction(pac -> {
+					try {
+						loadSvd(pac);
+					} catch (SvdParserException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (SAXException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (ParserConfigurationException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}).buildAndInstall(tool);
 	}
 
-	private void loadSvd(ProgramActionContext pac) {
+	private void loadSvd(ProgramActionContext pac) throws SvdParserException, SAXException, IOException, ParserConfigurationException {
 		Program program = pac.getProgram();
 		AutoAnalysisManager currentAutoAnalysisManager = AutoAnalysisManager.getAnalysisManager(program);
 		if (currentAutoAnalysisManager.isAnalyzing()) {
 			Msg.showWarn(getClass(), null, "Load SVD", "Unable to load SVD file while analysis is running.");
 			return;
 		}
-		
+
 		tool.setStatusInfo("Loading SVD.");
 
 		JComponent parentComponent = pac.getComponentProvider().getComponent();
@@ -73,11 +97,15 @@ public class SVDPlugin extends ProgramPlugin {
 			tool.setStatusInfo("SVD loading was cancelled.");
 			return;
 		}
-		
+
+		SvdDevice device = SvdDevice.fromFile(file);
+		SvdInfoDialog svdInfoDialog = new SvdInfoDialog(device);
+		tool.showDialog(svdInfoDialog);
+
 		SvdLoadTask loadTask = new SvdLoadTask(program, file);
 		TaskBuilder.withTask(loadTask).setStatusTextAlignment(SwingConstants.LEADING).setLaunchDelay(0);
 		new TaskLauncher(loadTask);
-		
+
 		tool.setStatusInfo("SVD loader finished.");
 	}
 }

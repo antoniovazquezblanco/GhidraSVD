@@ -167,8 +167,8 @@ public class SvdLoadTask extends Task {
 		int transactionId = mProgram.startTransaction("SVD memory block creation");
 		boolean ok = false;
 		try {
-			MemoryBlock memBlock = mMemory.createUninitializedBlock(blockInfo.name, addr, blockInfo.block.getSize().longValue(),
-					false);
+			MemoryBlock memBlock = mMemory.createUninitializedBlock(blockInfo.name, addr,
+					blockInfo.block.getSize().longValue(), false);
 			memBlock.setRead(blockInfo.isReadable);
 			memBlock.setWrite(blockInfo.isWritable);
 			memBlock.setExecute(blockInfo.isExecutable);
@@ -191,12 +191,11 @@ public class SvdLoadTask extends Task {
 	}
 
 	private void updateMatchingMemoryBlock(MemoryBlock collidingMemoryBlock, BlockInfo blockInfo) {
-		if (!collidingMemoryBlock.getName().equals(blockInfo.name)
-				&& OptionDialog.showYesNoDialog(null, "Load SVD",
-						"An existing memory block with name \"" + collidingMemoryBlock.getName()
-								+ "\" is in the same region as the \"" + blockInfo.name
-								+ "\" peripheral. Do you want to rename it to \"" + blockInfo.name
-								+ "\"?") == OptionDialog.OPTION_ONE) {
+		if (!collidingMemoryBlock.getName().equals(blockInfo.name) && OptionDialog.showYesNoDialog(null, "Load SVD",
+				"An existing memory block with name \"" + collidingMemoryBlock.getName()
+						+ "\" is in the same region as the \"" + blockInfo.name
+						+ "\" peripheral. Do you want to rename it to \"" + blockInfo.name
+						+ "\"?") == OptionDialog.OPTION_ONE) {
 			int transactionId = mProgram.startTransaction("SVD memory block rename");
 			boolean ok = false;
 			try {
@@ -208,8 +207,7 @@ public class SvdLoadTask extends Task {
 			}
 			mProgram.endTransaction(transactionId, ok);
 		}
-		if (collidingMemoryBlock.isRead() != blockInfo.isReadable && OptionDialog.showYesNoDialog(null,
-				"Load SVD",
+		if (collidingMemoryBlock.isRead() != blockInfo.isReadable && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isRead()) ? " non" : "")
 						+ " readable. The SVD file suggests it should be"
@@ -228,8 +226,7 @@ public class SvdLoadTask extends Task {
 			mProgram.endTransaction(transactionId, ok);
 		}
 
-		if (collidingMemoryBlock.isWrite() != blockInfo.isWritable && OptionDialog.showYesNoDialog(null,
-				"Load SVD",
+		if (collidingMemoryBlock.isWrite() != blockInfo.isWritable && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isWrite()) ? " non" : "")
 						+ " writable. The SVD file suggests it should be"
@@ -248,8 +245,7 @@ public class SvdLoadTask extends Task {
 			mProgram.endTransaction(transactionId, ok);
 		}
 
-		if (collidingMemoryBlock.isExecute() != blockInfo.isExecutable && OptionDialog.showYesNoDialog(null,
-				"Load SVD",
+		if (collidingMemoryBlock.isExecute() != blockInfo.isExecutable && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isExecute()) ? " non" : "")
 						+ " executable. The SVD file suggests it should be"
@@ -269,8 +265,7 @@ public class SvdLoadTask extends Task {
 			mProgram.endTransaction(transactionId, ok);
 		}
 
-		if (collidingMemoryBlock.isVolatile() != blockInfo.isVolatile && OptionDialog.showYesNoDialog(null,
-				"Load SVD",
+		if (collidingMemoryBlock.isVolatile() != blockInfo.isVolatile && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isVolatile()) ? " non" : "")
 						+ " volatile. The SVD file suggests it should be"
