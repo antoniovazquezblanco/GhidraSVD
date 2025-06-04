@@ -1,6 +1,7 @@
 # Ghidra SVD
 
 [![Build](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/main.yml/badge.svg)](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/main.yml)
+[![CodeQL](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/codeql.yml/badge.svg)](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/codeql.yml)
 
 <p align="center">
   <img width="400" src="doc/logo.png" alt="A red dragon tinkers with an IoT device">
@@ -16,7 +17,6 @@ This extension is available for installation via the [Ghidra Extension Manager](
 
 You may also install this extension by going to the [releases page](https://github.com/antoniovazquezblanco/GhidraSVD/releases) and downloading the latest version for your Ghidra distribution. In order to install from the release, in Ghidra main window go to `File` > `Install extensions...`. In the new window press the `+` icon to import the downloaded zip.
 
-
 ## Usage
 
 In a CodeBrowser window press `File` > `Import SVD...`.
@@ -25,17 +25,18 @@ A file dialog will allow you to select your SVD file and import it. Memory map w
 
 You may find SVD file sources in the following table:
 
-| Manufacturer  | URL                                                                   | Notes                     |
-|:--------------|:----------------------------------------------------------------------|:--------------------------|
-| Espressif     | https://github.com/espressif/svd                                      |                           |
-| ST            | https://github.com/modm-io/cmsis-svd-stm32                            |                           |
-| ST            | https://github.com/morbos/STM32                                       |                           |
-| NXP           | https://github.com/Masmiseim36/nxpSDK/tree/master/devices             | May have XML extension    |
-| NXP           | https://mcuxpresso.nxp.com/en/welcome                                 | May have XML extension    |
-| Various/ARM   | https://www.keil.arm.com/devices/                                     |                           |
-| Various/ARM   | https://github.com/ARM-software/CMSIS_4/tree/master/Device/ARM/SVD    |                           |
-| Various/ARM   | https://github.com/ARM-software/CMSIS_5/tree/develop/Device/ARM/SVD   |                           |
-| Various/ARM   | https://github.com/ARM-software/Cortex_DFP/tree/main/SVD              |                           |
+| Manufacturer  | URL                                                                 | Notes                    |
+| :------------ | :------------------------------------------------------------------ | :----------------------- |
+| CMSIS SVD Org | https://github.com/cmsis-svd/cmsis-svd-data                         | An extensive collection! |
+| Espressif     | https://github.com/espressif/svd                                    |                          |
+| ST            | https://github.com/modm-io/cmsis-svd-stm32                          |                          |
+| ST            | https://github.com/morbos/STM32                                     |                          |
+| NXP           | https://github.com/Masmiseim36/nxpSDK/tree/master/devices           | May have XML extension   |
+| NXP           | https://mcuxpresso.nxp.com/en/welcome                               | May have XML extension   |
+| Various/ARM   | https://www.keil.arm.com/devices/                                   |                          |
+| Various/ARM   | https://github.com/ARM-software/CMSIS_4/tree/master/Device/ARM/SVD  |                          |
+| Various/ARM   | https://github.com/ARM-software/CMSIS_5/tree/develop/Device/ARM/SVD |                          |
+| Various/ARM   | https://github.com/ARM-software/Cortex_DFP/tree/main/SVD            |                          |
 
 ## Development
 
