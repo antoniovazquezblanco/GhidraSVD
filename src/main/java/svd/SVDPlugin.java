@@ -34,6 +34,8 @@ import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 import ghidra.util.task.TaskBuilder;
 import ghidra.util.task.TaskLauncher;
+import svd.task.SvdLoadTask;
+import svd.ui.SvdFileDialog;
 
 //@formatter:off
 @PluginInfo(

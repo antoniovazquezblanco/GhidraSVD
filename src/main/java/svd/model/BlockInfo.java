@@ -1,4 +1,4 @@
-package svd;
+package svd.model;
 
 import java.util.ArrayList;
 import java.util.List;

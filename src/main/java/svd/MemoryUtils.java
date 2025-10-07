@@ -19,6 +19,7 @@ import java.util.Arrays;
 
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
+import svd.model.Block;
 
 public class MemoryUtils {
 	public static boolean doesMemoryBlockCollideWithRegion(MemoryBlock block, Long regionStart, Long regionSize) {

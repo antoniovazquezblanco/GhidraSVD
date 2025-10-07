@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package svd;
+package svd.task;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,7 +53,10 @@ import io.svdparser.SvdDevice;
 import io.svdparser.SvdParserException;
 import io.svdparser.SvdPeripheral;
 import io.svdparser.SvdRegister;
+import svd.MemoryUtils;
 import svd.MemoryUtils.MemRangeRelation;
+import svd.model.Block;
+import svd.model.BlockInfo;
 
 public class SvdLoadTask extends Task {
 	private File mSvdFile;
