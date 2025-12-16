@@ -21,33 +21,42 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'java-kotlin' ]
+        include:
+        - language: actions
+          build-mode: none
+        - language: java-kotlin
+          build-mode: manual
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
 
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+
     - name: Install Java
+      if: matrix.language == 'java-kotlin'
       uses: actions/setup-java@v5
       with:
         distribution: 'temurin'
         java-version: '21'
 
     - name: Install Gradle
+      if: matrix.language == 'java-kotlin'
       uses: gradle/actions/setup-gradle@v5
 
     - name: Install Ghidra
+      if: matrix.language == 'java-kotlin'
       uses: antoniovazquezblanco/setup-ghidra@v2.0.17
       with:
         auth_token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v4
-      with:
-        languages: ${{ matrix.language }}
-
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v4
+    - name: Build
+      if: matrix.language == 'java-kotlin'
+      run: gradle buildExtension
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
