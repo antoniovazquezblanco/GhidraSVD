@@ -18,6 +18,7 @@ package svd.task;
 import java.util.ArrayList;
 import java.util.List;
 
+import ghidra.framework.plugintool.PluginTool;
 import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOverflowException;
@@ -37,14 +38,17 @@ import svd.MemoryBlockOperation;
 import svd.MemoryBlockOperation.MemoryBlockOperationType;
 import svd.MemoryUtils;
 import svd.MemoryUtils.MemRangeRelation;
+import svd.ui.SvdMemoryBlockOperationsDialog;
 
 public class SvdMemoryMapUpdateTask extends Task {
 	private SvdDevice mSvdDevice;
 	private Program mProgram;
 	private Memory mMemory;
+	private PluginTool mTool;
 
-	public SvdMemoryMapUpdateTask(Program program, SvdDevice device) {
+	public SvdMemoryMapUpdateTask(PluginTool tool, Program program, SvdDevice device) {
 		super("Create SVD Memory Map Regions", true, false, true, true);
+		mTool = tool;
 		mProgram = program;
 		mMemory = program.getMemory();
 		mSvdDevice = device;
@@ -53,6 +57,14 @@ public class SvdMemoryMapUpdateTask extends Task {
 	@Override
 	public void run(TaskMonitor monitor) throws CancelledException {
 		List<MemoryBlockOperation> operations = getMemoryOperations(monitor);
+
+		// Show dialog for user to review and accept operations
+		SvdMemoryBlockOperationsDialog dialog = new SvdMemoryBlockOperationsDialog(operations);
+		mTool.showDialog(dialog);
+		if (!dialog.isAccepted()) {
+			throw new CancelledException();
+		}
+
 		for (MemoryBlockOperation op : operations) {
 			monitor.checkCancelled();
 			applyMemoryOperation(op);
