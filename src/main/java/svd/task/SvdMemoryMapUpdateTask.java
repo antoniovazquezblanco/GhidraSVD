@@ -23,29 +23,17 @@ import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOverflowException;
 import ghidra.program.model.address.AddressSpace;
-import ghidra.program.model.data.DataTypeConflictHandler;
-import ghidra.program.model.data.ProgramBasedDataTypeManager;
-import ghidra.program.model.data.StructureDataType;
-import ghidra.program.model.data.UnsignedLongDataType;
-import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.mem.MemoryConflictException;
-import ghidra.program.model.symbol.Namespace;
-import ghidra.program.model.symbol.SourceType;
-import ghidra.program.model.symbol.SymbolTable;
-import ghidra.program.model.util.CodeUnitInsertionException;
 import ghidra.util.Msg;
 import ghidra.util.exception.CancelledException;
-import ghidra.util.exception.DuplicateNameException;
-import ghidra.util.exception.InvalidInputException;
 import ghidra.util.task.Task;
 import ghidra.util.task.TaskMonitor;
 import io.svdparser.SvdAddressBlock;
 import io.svdparser.SvdDevice;
 import io.svdparser.SvdPeripheral;
-import io.svdparser.SvdRegister;
 import svd.MemoryUtils;
 import svd.MemoryUtils.MemRangeRelation;
 import svd.model.Block;
@@ -55,27 +43,23 @@ public class SvdMemoryMapUpdateTask extends Task {
 	private SvdDevice mSvdDevice;
 	private Program mProgram;
 	private Memory mMemory;
-	private SymbolTable mSymTable;
 
 	public SvdMemoryMapUpdateTask(Program program, SvdDevice device) {
 		super("Create SVD Memory Map Regions", true, false, true, true);
 		mProgram = program;
 		mMemory = program.getMemory();
-		mSymTable = program.getSymbolTable();
 		mSvdDevice = device;
 	}
 
 	@Override
 	public void run(TaskMonitor monitor) throws CancelledException {
-		// Convert the SVD device information to our internal representation
+		// Convert the SVD device information to our internal representation...
+		monitor.setMessage("Obtaining memory blocks...");
 		Map<Block, BlockInfo> memBlocks = getMemoryBlocks(monitor, mSvdDevice);
 
-		// Then, process the blocks
-		for (BlockInfo blockInfo : memBlocks.values()) {
-			monitor.setMessage("Processing " + blockInfo.name + "...");
-			monitor.checkCancelled();
-			processBlock(blockInfo);
-		}
+		// Process the blocks...
+		monitor.setMessage("Processing memory blocks...");
+		processBlocks(monitor, memBlocks);
 	}
 
 	private Map<Block, BlockInfo> getMemoryBlocks(TaskMonitor monitor, SvdDevice device) throws CancelledException {
@@ -124,11 +108,11 @@ public class SvdMemoryMapUpdateTask extends Task {
 		return name;
 	}
 
-	private void processBlock(BlockInfo blockInfo) {
-		boolean memOk = processBlockMemory(blockInfo);
-		if (memOk) {
-			processBlockSymbol(blockInfo);
-			processBlockDataTypes(blockInfo);
+	private void processBlocks(TaskMonitor monitor, Map<Block, BlockInfo> memBlocks) throws CancelledException {
+		for (BlockInfo blockInfo : memBlocks.values()) {
+			monitor.setMessage("Processing " + blockInfo.name + "...");
+			monitor.checkCancelled();
+			processBlockMemory(blockInfo);
 		}
 	}
 
@@ -271,86 +255,5 @@ public class SvdMemoryMapUpdateTask extends Task {
 			}
 			mProgram.endTransaction(transactionId, ok);
 		}
-	}
-
-	private void processBlockSymbol(BlockInfo blockInfo) {
-		// Calculate address of the block...
-		AddressSpace addrSpace = mProgram.getAddressFactory().getDefaultAddressSpace();
-		Address addr = addrSpace.getAddress(blockInfo.block.getAddress().longValue());
-
-		// Create a symbol name...
-		Namespace namespace = getOrCreateNamespace("Peripherals");
-		int transactionId = mProgram.startTransaction("SVD " + blockInfo.name + " symtable creation");
-		boolean ok = false;
-		try {
-			mSymTable.createLabel(addr, blockInfo.name.replace('/', '_'), namespace, SourceType.IMPORTED);
-			ok = true;
-		} catch (InvalidInputException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		mProgram.endTransaction(transactionId, ok);
-	}
-
-	private Namespace getOrCreateNamespace(String name) {
-		Namespace namespace = mSymTable.getNamespace(name, null);
-		if (namespace != null)
-			return namespace;
-
-		int transactionId = mProgram.startTransaction("SVD " + name + " namespace creation");
-		boolean ok = false;
-		try {
-			namespace = mSymTable.createNameSpace(null, name, SourceType.IMPORTED);
-			ok = true;
-		} catch (DuplicateNameException | InvalidInputException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		mProgram.endTransaction(transactionId, ok);
-		return namespace;
-	}
-
-	private void processBlockDataTypes(BlockInfo blockInfo) {
-		StructureDataType struct = createPeripheralBlockDataType(blockInfo);
-
-		// Add struct to the data type manager...
-		ProgramBasedDataTypeManager dataTypeManager = mProgram.getDataTypeManager();
-		int transactionId = mProgram.startTransaction("SVD " + blockInfo.name + " data type creation");
-		boolean ok = false;
-		try {
-			dataTypeManager.addDataType(struct, DataTypeConflictHandler.REPLACE_HANDLER);
-			ok = true;
-		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
-		}
-		mProgram.endTransaction(transactionId, ok);
-
-		// Calculate address of the block...
-		AddressSpace addrSpace = mProgram.getAddressFactory().getDefaultAddressSpace();
-		Address addr = addrSpace.getAddress(blockInfo.block.getAddress().longValue());
-
-		// Add data type to listing...
-		Listing listing = mProgram.getListing();
-		transactionId = mProgram.startTransaction("SVD " + blockInfo.name + " data type listing placement");
-		ok = false;
-		try {
-			listing.createData(addr, struct);
-			ok = true;
-		} catch (CodeUnitInsertionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		mProgram.endTransaction(transactionId, ok);
-	}
-
-	private StructureDataType createPeripheralBlockDataType(BlockInfo blockInfo) {
-		String struct_name = blockInfo.name.replace('/', '_') + "_reg_t";
-		StructureDataType struct = new StructureDataType(struct_name, blockInfo.block.getSize().intValue());
-		for (SvdPeripheral periph : blockInfo.peripherals)
-			for (SvdRegister reg : periph.getRegisters())
-				if (reg.getOffset() < blockInfo.block.getSize())
-					struct.replaceAtOffset(reg.getOffset(), new UnsignedLongDataType(), reg.getSize() / 8,
-							reg.getName(), reg.getDescription());
-		return struct;
 	}
 }

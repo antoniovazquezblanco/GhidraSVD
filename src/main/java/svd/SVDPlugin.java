@@ -33,6 +33,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 import svd.task.SvdMemoryMapUpdateTask;
 import svd.task.SvdParseTask;
+import svd.task.SvdDataTypesCreateTask;
 import svd.ui.SvdFileDialog;
 
 //@formatter:off
@@ -86,6 +87,10 @@ public class SVDPlugin extends ProgramPlugin {
 		// Create the new memory map regions...
 		SvdMemoryMapUpdateTask memoryTask = new SvdMemoryMapUpdateTask(program, parseTask.getSvdDevice());
 		tool.execute(memoryTask);
+
+		// Create symbols and data types...
+		SvdDataTypesCreateTask symbolTask = new SvdDataTypesCreateTask(program, parseTask.getSvdDevice());
+		tool.execute(symbolTask);
 
 		tool.setStatusInfo("SVD information loaded!");
 	}
