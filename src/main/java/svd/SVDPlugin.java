@@ -56,7 +56,7 @@ public class SVDPlugin extends ProgramPlugin {
 	private void createActions() {
 		new ActionBuilder("Load SVD File", this.getName()).withContext(ProgramActionContext.class)
 				.validContextWhen(pac -> pac.getProgram() != null).menuPath(ToolConstants.MENU_FILE, "Load SVD File...")
-				.menuGroup("Import SVD", "5").onAction(pac -> loadSvd(pac)).buildAndInstall(tool);
+				.menuGroup("Import PDB", "5").onAction(pac -> loadSvd(pac)).buildAndInstall(tool);
 	}
 
 	private void loadSvd(ProgramActionContext pac) {
