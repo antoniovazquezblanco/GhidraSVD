@@ -23,14 +23,14 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
-import javax.swing.table.DefaultTableModel;
+
 
 import docking.DialogComponentProvider;
 import svd.MemoryBlockOperation;
 
 public class SvdMemoryBlockOperationsDialog extends DialogComponentProvider {
     private JTable operationsTable;
-    private DefaultTableModel tableModel;
+    private SvdMemoryBlockOperationsTableModel tableModel;
     private boolean accepted = false;
 
     public SvdMemoryBlockOperationsDialog(List<MemoryBlockOperation> operations) {
@@ -44,41 +44,10 @@ public class SvdMemoryBlockOperationsDialog extends DialogComponentProvider {
     }
 
     private void initializeTable(List<MemoryBlockOperation> operations) {
-        String[] columnNames = {"Operation Type", "Name", "Address", "Size", "Read", "Write", "Execute", "Volatile"};
-        tableModel = new DefaultTableModel(columnNames, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-
-            @Override
-            public Class<?> getColumnClass(int column) {
-                switch (column) {
-                    case 0: return String.class;
-                    case 1: return String.class;
-                    case 2: return String.class;
-                    case 3: return String.class;
-                    case 4: return Boolean.class;
-                    case 5: return Boolean.class;
-                    case 6: return Boolean.class;
-                    case 7: return Boolean.class;
-                    default: return String.class;
-                }
-            }
-        };
+        tableModel = new SvdMemoryBlockOperationsTableModel();
 
         for (MemoryBlockOperation op : operations) {
-            Object[] row = {
-                op.Type.toString(),
-                op.Name,
-                String.format("0x%08X", op.Address),
-                String.format("0x%08X", op.Size),
-                op.Read,
-                op.Write,
-                op.Execute,
-                op.Volatile
-            };
-            tableModel.addRow(row);
+            tableModel.addRow(op);
         }
 
         operationsTable = new JTable(tableModel);
