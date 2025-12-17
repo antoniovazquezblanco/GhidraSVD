@@ -15,9 +15,6 @@
  */
 package svd.task;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import docking.widgets.OptionDialog;
 import ghidra.framework.store.LockException;
 import ghidra.program.model.address.Address;
@@ -36,8 +33,6 @@ import io.svdparser.SvdDevice;
 import io.svdparser.SvdPeripheral;
 import svd.MemoryUtils;
 import svd.MemoryUtils.MemRangeRelation;
-import svd.model.Block;
-import svd.model.BlockInfo;
 
 public class SvdMemoryMapUpdateTask extends Task {
 	private SvdDevice mSvdDevice;
@@ -53,50 +48,32 @@ public class SvdMemoryMapUpdateTask extends Task {
 
 	@Override
 	public void run(TaskMonitor monitor) throws CancelledException {
-		// Convert the SVD device information to our internal representation...
-		monitor.setMessage("Obtaining memory blocks...");
-		Map<Block, BlockInfo> memBlocks = getMemoryBlocks(monitor, mSvdDevice);
-
 		// Process the blocks...
 		monitor.setMessage("Processing memory blocks...");
-		processBlocks(monitor, memBlocks);
+		for (SvdPeripheral periph : mSvdDevice.getPeripherals()) {
+			monitor.checkCancelled();
+			processPeripheral(monitor, periph);
+		}
 	}
 
-	private Map<Block, BlockInfo> getMemoryBlocks(TaskMonitor monitor, SvdDevice device) throws CancelledException {
-		Map<Block, BlockInfo> memBlocks = new HashMap<Block, BlockInfo>();
-		// Convert all peripherals to blocks...
-		for (SvdPeripheral periph : mSvdDevice.getPeripherals()) {
-			for (SvdAddressBlock block : periph.getAddressBlocks()) {
-				// Check for cancellation
-				monitor.checkCancelled();
-
-				// Create a block..
-				Block b = new Block(periph.getBaseAddr() + block.getOffset(), block.getSize());
-
-				// Check if block exists...
-				BlockInfo bInfo = memBlocks.get(b);
-				if (bInfo == null)
-					bInfo = new BlockInfo();
-
-				// Fill in block info...
-				if (bInfo.block == null)
-					bInfo.block = b;
-				String name = getPeriphBlockName(periph, block);
-				if (bInfo.name == null)
-					bInfo.name = name;
-				else
-					bInfo.name += "/" + name;
-				bInfo.isReadable = true;
-				bInfo.isWritable = true;
-				bInfo.isExecutable = name.contains("RAM") || name.contains("memory");
-				bInfo.isVolatile = !bInfo.isExecutable;
-				bInfo.peripherals.add(periph);
-
-				// Save the data...
-				memBlocks.put(b, bInfo);
-			}
+	private void processPeripheral(TaskMonitor monitor, SvdPeripheral periph) throws CancelledException {
+		for (SvdAddressBlock block : periph.getAddressBlocks()) {
+			monitor.checkCancelled();
+			processPeripheralBlock(monitor, periph, block);
 		}
-		return memBlocks;
+
+	}
+
+	private void processPeripheralBlock(TaskMonitor monitor, SvdPeripheral periph, SvdAddressBlock block) {
+		String blockName = getPeriphBlockName(periph, block);
+		long address = periph.getBaseAddr() + block.getOffset();
+		long size = block.getSize();
+		boolean isReadable = true;
+		boolean isWritable = true;
+		boolean isExecutable = blockName.contains("RAM") || blockName.contains("memory");
+		boolean isVolatile = !isExecutable;
+
+		processBlockMemory(blockName, isReadable, isWritable, isExecutable, isVolatile, address, size);
 	}
 
 	private String getPeriphBlockName(SvdPeripheral periph, SvdAddressBlock block) {
@@ -108,42 +85,35 @@ public class SvdMemoryMapUpdateTask extends Task {
 		return name;
 	}
 
-	private void processBlocks(TaskMonitor monitor, Map<Block, BlockInfo> memBlocks) throws CancelledException {
-		for (BlockInfo blockInfo : memBlocks.values()) {
-			monitor.setMessage("Processing " + blockInfo.name + "...");
-			monitor.checkCancelled();
-			processBlockMemory(blockInfo);
-		}
-	}
-
-	private boolean processBlockMemory(BlockInfo blockInfo) {
-		MemoryBlock[] collidingMemoryBlocks = MemoryUtils.getBlockCollidingMemoryBlocks(mMemory, blockInfo.block);
+	private boolean processBlockMemory(String name, boolean isReadable, boolean isWritable, boolean isExecutable,
+			boolean isVolatile, long address, long size) {
+		MemoryBlock[] collidingMemoryBlocks = MemoryUtils.getBlockCollidingMemoryBlocks(mMemory, address, size);
 		if (collidingMemoryBlocks.length == 0) {
-			createMemoryBlock(blockInfo);
+			createMemoryBlock(name, isReadable, isWritable, isExecutable, isVolatile, address, size);
 		} else if (collidingMemoryBlocks.length == 1 && MemoryUtils.getMemoryBlockRelation(collidingMemoryBlocks[0],
-				blockInfo.block) == MemRangeRelation.RANGES_ARE_EQUAL) {
-			updateMatchingMemoryBlock(collidingMemoryBlocks[0], blockInfo);
+				address, size) == MemRangeRelation.RANGES_ARE_EQUAL) {
+			updateMatchingMemoryBlock(collidingMemoryBlocks[0], name, isReadable, isWritable, isExecutable, isVolatile);
 		} else {
-			Msg.showWarn(getClass(), null, "Load SVD", "Could not create a region for " + blockInfo.name + "@"
-					+ String.format("0x%08x", blockInfo.block.getAddress()) + "+"
-					+ String.format("0x%08x", blockInfo.block.getSize()) + ". It conflicts with an existing region!");
+			Msg.showWarn(getClass(), null, "Load SVD",
+					"Could not create a region for " + name + "@" + String.format("0x%08x", address) + "+"
+							+ String.format("0x%08x", size) + ". It conflicts with an existing region!");
 			return false;
 		}
 		return true;
 	}
 
-	private void createMemoryBlock(BlockInfo blockInfo) {
+	private void createMemoryBlock(String name, boolean isReadable, boolean isWritable, boolean isExecutable,
+			boolean isVolatile, long address, long size) {
 		AddressSpace addrSpace = mProgram.getAddressFactory().getDefaultAddressSpace();
-		Address addr = addrSpace.getAddress(blockInfo.block.getAddress());
+		Address addr = addrSpace.getAddress(address);
 		int transactionId = mProgram.startTransaction("SVD memory block creation");
 		boolean ok = false;
 		try {
-			MemoryBlock memBlock = mMemory.createUninitializedBlock(blockInfo.name, addr,
-					blockInfo.block.getSize().longValue(), false);
-			memBlock.setRead(blockInfo.isReadable);
-			memBlock.setWrite(blockInfo.isWritable);
-			memBlock.setExecute(blockInfo.isExecutable);
-			memBlock.setVolatile(blockInfo.isVolatile);
+			MemoryBlock memBlock = mMemory.createUninitializedBlock(name, addr, size, false);
+			memBlock.setRead(isReadable);
+			memBlock.setWrite(isWritable);
+			memBlock.setExecute(isExecutable);
+			memBlock.setVolatile(isVolatile);
 			memBlock.setComment("Generated by SVD");
 			ok = true;
 		} catch (LockException e) {
@@ -161,16 +131,16 @@ public class SvdMemoryMapUpdateTask extends Task {
 		mProgram.endTransaction(transactionId, ok);
 	}
 
-	private void updateMatchingMemoryBlock(MemoryBlock collidingMemoryBlock, BlockInfo blockInfo) {
-		if (!collidingMemoryBlock.getName().equals(blockInfo.name) && OptionDialog.showYesNoDialog(null, "Load SVD",
+	private void updateMatchingMemoryBlock(MemoryBlock collidingMemoryBlock, String name, boolean isReadable,
+			boolean isWritable, boolean isExecutable, boolean isVolatile) {
+		if (!collidingMemoryBlock.getName().equals(name) && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"An existing memory block with name \"" + collidingMemoryBlock.getName()
-						+ "\" is in the same region as the \"" + blockInfo.name
-						+ "\" peripheral. Do you want to rename it to \"" + blockInfo.name
-						+ "\"?") == OptionDialog.OPTION_ONE) {
+						+ "\" is in the same region as the \"" + name + "\" peripheral. Do you want to rename it to \""
+						+ name + "\"?") == OptionDialog.OPTION_ONE) {
 			int transactionId = mProgram.startTransaction("SVD memory block rename");
 			boolean ok = false;
 			try {
-				collidingMemoryBlock.setName(blockInfo.name);
+				collidingMemoryBlock.setName(name);
 				collidingMemoryBlock.setComment("Changed by SVD");
 				ok = true;
 			} catch (IllegalArgumentException | LockException e) {
@@ -178,7 +148,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 			}
 			mProgram.endTransaction(transactionId, ok);
 		}
-		if (collidingMemoryBlock.isRead() != blockInfo.isReadable && OptionDialog.showYesNoDialog(null, "Load SVD",
+		if (collidingMemoryBlock.isRead() != isReadable && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isRead()) ? " non" : "")
 						+ " readable. The SVD file suggests it should be"
@@ -188,7 +158,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
 			boolean ok = false;
 			try {
-				collidingMemoryBlock.setRead(blockInfo.isReadable);
+				collidingMemoryBlock.setRead(isReadable);
 				collidingMemoryBlock.setComment("Changed by SVD");
 				ok = true;
 			} catch (IllegalArgumentException e) {
@@ -197,7 +167,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 			mProgram.endTransaction(transactionId, ok);
 		}
 
-		if (collidingMemoryBlock.isWrite() != blockInfo.isWritable && OptionDialog.showYesNoDialog(null, "Load SVD",
+		if (collidingMemoryBlock.isWrite() != isWritable && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isWrite()) ? " non" : "")
 						+ " writable. The SVD file suggests it should be"
@@ -207,7 +177,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
 			boolean ok = false;
 			try {
-				collidingMemoryBlock.setWrite(blockInfo.isWritable);
+				collidingMemoryBlock.setWrite(isWritable);
 				collidingMemoryBlock.setComment("Changed by SVD");
 				ok = true;
 			} catch (IllegalArgumentException e) {
@@ -216,7 +186,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 			mProgram.endTransaction(transactionId, ok);
 		}
 
-		if (collidingMemoryBlock.isExecute() != blockInfo.isExecutable && OptionDialog.showYesNoDialog(null, "Load SVD",
+		if (collidingMemoryBlock.isExecute() != isExecutable && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isExecute()) ? " non" : "")
 						+ " executable. The SVD file suggests it should be"
@@ -227,7 +197,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
 			boolean ok = false;
 			try {
-				collidingMemoryBlock.setExecute(blockInfo.isExecutable);
+				collidingMemoryBlock.setExecute(isExecutable);
 				collidingMemoryBlock.setComment("Changed by SVD");
 				ok = true;
 			} catch (IllegalArgumentException e) {
@@ -236,7 +206,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 			mProgram.endTransaction(transactionId, ok);
 		}
 
-		if (collidingMemoryBlock.isVolatile() != blockInfo.isVolatile && OptionDialog.showYesNoDialog(null, "Load SVD",
+		if (collidingMemoryBlock.isVolatile() != isVolatile && OptionDialog.showYesNoDialog(null, "Load SVD",
 				"Memory block \"" + collidingMemoryBlock.getName() + "\" is marked as"
 						+ ((!collidingMemoryBlock.isVolatile()) ? " non" : "")
 						+ " volatile. The SVD file suggests it should be"
@@ -247,7 +217,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 					.startTransaction("SVD " + collidingMemoryBlock.getName() + " memory block property change");
 			boolean ok = false;
 			try {
-				collidingMemoryBlock.setVolatile(blockInfo.isVolatile);
+				collidingMemoryBlock.setVolatile(isVolatile);
 				collidingMemoryBlock.setComment("Changed by SVD");
 				ok = true;
 			} catch (IllegalArgumentException e) {

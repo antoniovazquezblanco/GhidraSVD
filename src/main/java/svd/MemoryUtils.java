@@ -19,7 +19,7 @@ import java.util.Arrays;
 
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
-import svd.model.Block;
+
 
 public class MemoryUtils {
 	public static boolean doesMemoryBlockCollideWithRegion(MemoryBlock block, Long regionStart, Long regionSize) {
@@ -29,9 +29,9 @@ public class MemoryUtils {
 		return (regionStart.longValue() <= blockEnd.longValue() && regionEnd.longValue() >= blockStart.longValue());
 	}
 
-	public static MemoryBlock[] getBlockCollidingMemoryBlocks(Memory memory, Block block) {
+	public static MemoryBlock[] getBlockCollidingMemoryBlocks(Memory memory, long address, long size) {
 		return Arrays.stream(memory.getBlocks())
-				.filter(x -> doesMemoryBlockCollideWithRegion(x, block.getAddress(), block.getSize())).toArray(MemoryBlock[]::new);
+				.filter(x -> doesMemoryBlockCollideWithRegion(x, address, size)).toArray(MemoryBlock[]::new);
 	}
 	
 	public enum MemRangeRelation {
@@ -42,11 +42,11 @@ public class MemoryUtils {
 		RANGE1_AFTER_RANGE2,
 	}
 	
-	public static MemRangeRelation getMemoryBlockRelation(MemoryBlock block1, Block block2) {
+	public static MemRangeRelation getMemoryBlockRelation(MemoryBlock block1, long address2, long size2) {
 		Long block1Start = block1.getStart().getOffset();
 		Long block1End = block1.getEnd().getOffset();
-		Long block2Start = block2.getAddress();
-		Long block2End = block2.getAddress() + block2.getSize() - 1;
+		Long block2Start = address2;
+		Long block2End = address2 + size2 - 1;
 		if(block1Start.longValue() == block2Start.longValue() && block1End.longValue() == block2End.longValue()) {
 			return MemRangeRelation.RANGES_ARE_EQUAL;
 		} else if (block1Start.longValue() <= block2Start.longValue() && block1End.longValue() >= block2End.longValue()) {
