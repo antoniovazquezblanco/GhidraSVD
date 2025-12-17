@@ -28,7 +28,8 @@ You may find SVD file sources in the following table:
 | Manufacturer  | URL                                                                 | Notes                    |
 | :------------ | :------------------------------------------------------------------ | :----------------------- |
 | CMSIS SVD Org | https://github.com/cmsis-svd/cmsis-svd-data                         | An extensive collection! |
-| Espressif     | https://github.com/espressif/svd                                    |                          |
+| Espressif     | https://github.com/espressif/svd                                    | Quite outdated...        |
+| ESP Packs     | https://github.com/esp-rs/esp-pacs                                  | Community. Up to date!   |
 | ST            | https://github.com/modm-io/cmsis-svd-stm32                          |                          |
 | ST            | https://github.com/morbos/STM32                                     |                          |
 | NXP           | https://github.com/Masmiseim36/nxpSDK/tree/master/devices           | May have XML extension   |
