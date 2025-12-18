@@ -147,12 +147,30 @@ public class SvdDataTypesCreateTask extends Task {
 		struct.setPackingEnabled(true);
 		fields.sort(Comparator.comparingInt(SvdField::getBitOffset));
 		int fieldNumber = 0;
+		int lastBitPos = 0;
 		for (SvdField field : fields) {
-			// Skip fields that exceed the register size
-			if (field.getBitOffset() + field.getBitWidth() > reg.getSize()) {
+			// Check if we need to add some padding...
+			int padding = field.getBitOffset() - lastBitPos;
+			if (padding > 0)
+				try {
+					struct.insertBitField(fieldNumber++, reg.getSize(), lastBitPos, new UnsignedLongDataType(), padding,
+							"", "");
+				} catch (InvalidDataTypeException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IndexOutOfBoundsException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+			// Skip fields that exceed the register size...
+			lastBitPos = field.getBitOffset() + field.getBitWidth();
+			if (lastBitPos > reg.getSize()) {
 				// TODO: Handle this?
 				continue;
 			}
+
+			// Create the corresponding field...
 			try {
 				struct.insertBitField(fieldNumber++, reg.getSize(), field.getBitOffset(), new UnsignedLongDataType(),
 						field.getBitWidth(), field.getName(), field.getDescription());
