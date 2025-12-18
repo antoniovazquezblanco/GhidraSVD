@@ -77,7 +77,9 @@ public class SvdMemoryMapUpdateTask extends Task {
 		for (SvdPeripheral periph : mSvdDevice.getPeripherals()) {
 			for (SvdAddressBlock block : periph.getAddressBlocks()) {
 				monitor.checkCancelled();
-				operations.add(getMemoryOperation(periph, block));
+				MemoryBlockOperation op = getMemoryOperation(periph, block);
+				if (op != null)
+					operations.add(op);
 			}
 		}
 		return operations;
@@ -104,7 +106,7 @@ public class SvdMemoryMapUpdateTask extends Task {
 				op.Address, op.Size) == MemRangeRelation.RANGES_ARE_EQUAL) {
 			// There is a colliding block. It also has the same address and size...
 			// Check if all properties are the same, if so, no operation...
-			if (collidingMemoryBlocks[0].getName() == op.Name && collidingMemoryBlocks[0].isRead() == op.Read
+			if (collidingMemoryBlocks[0].getName().equals(op.Name) && collidingMemoryBlocks[0].isRead() == op.Read
 					&& collidingMemoryBlocks[0].isWrite() == op.Write
 					&& collidingMemoryBlocks[0].isExecute() == op.Execute
 					&& collidingMemoryBlocks[0].isVolatile() == op.Volatile)
