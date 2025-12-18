@@ -15,9 +15,14 @@
  */
 package svd.task;
 
+import java.util.Comparator;
+import java.util.List;
+
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.DataTypeConflictHandler;
+import ghidra.program.model.data.InvalidDataTypeException;
 import ghidra.program.model.data.ProgramBasedDataTypeManager;
 import ghidra.program.model.data.StructureDataType;
 import ghidra.program.model.data.UnsignedLongDataType;
@@ -34,6 +39,7 @@ import ghidra.util.task.Task;
 import ghidra.util.task.TaskMonitor;
 import io.svdparser.SvdAddressBlock;
 import io.svdparser.SvdDevice;
+import io.svdparser.SvdField;
 import io.svdparser.SvdPeripheral;
 import io.svdparser.SvdRegister;
 
@@ -124,8 +130,37 @@ public class SvdDataTypesCreateTask extends Task {
 		for (SvdRegister reg : periph.getRegisters())
 			// TODO: Handle out of bounds values?
 			if (reg.getOffset() < block.getSize())
-				struct.replaceAtOffset(reg.getOffset(), new UnsignedLongDataType(), reg.getSize() / 8, reg.getName(),
+				struct.replaceAtOffset(reg.getOffset(), createRegisterDataType(reg), reg.getSize() / 8, reg.getName(),
 						reg.getDescription());
+		return struct;
+	}
+
+	private DataType createRegisterDataType(SvdRegister reg) {
+		List<SvdField> fields = reg.getFields();
+
+		// If this is a register without fields, return the basic unsigned type...
+		if (fields == null || fields.isEmpty())
+			return new UnsignedLongDataType();
+
+		// Fields, insert bit fields at their exact bit offsets...
+		StructureDataType struct = new StructureDataType(reg.getName() + "_t", reg.getSize() / 8);
+		struct.setPackingEnabled(true);
+		fields.sort(Comparator.comparingInt(SvdField::getBitOffset));
+		int fieldNumber = 0;
+		for (SvdField field : fields) {
+			// Skip fields that exceed the register size
+			if (field.getBitOffset() + field.getBitWidth() > reg.getSize()) {
+				// TODO: Handle this?
+				continue;
+			}
+			try {
+				struct.insertBitField(fieldNumber++, reg.getSize(), field.getBitOffset(), new UnsignedLongDataType(),
+						field.getBitWidth(), field.getName(), field.getDescription());
+			} catch (InvalidDataTypeException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 		return struct;
 	}
 
