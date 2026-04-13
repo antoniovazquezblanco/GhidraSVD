@@ -65,6 +65,6 @@ jobs:
         uses: actions/download-artifact@v8
 
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: SVD_Ghidra_*/*.zip
