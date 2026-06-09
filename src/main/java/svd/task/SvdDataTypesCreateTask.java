@@ -20,6 +20,7 @@ import java.util.List;
 
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.CategoryPath;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.DataTypeConflictHandler;
 import ghidra.program.model.data.InvalidDataTypeException;
@@ -126,16 +127,17 @@ public class SvdDataTypesCreateTask extends Task {
 
 	private StructureDataType createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock block) {
 		String struct_name = getPeriphBlockDataTypeName(periph, block);
-		StructureDataType struct = new StructureDataType(struct_name, block.getSize().intValue());
+		CategoryPath path = new CategoryPath("/" + periph.getName());
+		StructureDataType struct = new StructureDataType(path, struct_name, block.getSize().intValue());
 		for (SvdRegister reg : periph.getRegisters())
 			// TODO: Handle out of bounds values?
 			if (reg.getOffset() < block.getSize())
-				struct.replaceAtOffset(reg.getOffset(), createRegisterDataType(reg), reg.getSize() / 8, reg.getName(),
+				struct.replaceAtOffset(reg.getOffset(), createRegisterDataType(periph, reg), reg.getSize() / 8, reg.getName(),
 						reg.getDescription());
 		return struct;
 	}
 
-	private DataType createRegisterDataType(SvdRegister reg) {
+	private DataType createRegisterDataType(SvdPeripheral periph, SvdRegister reg) {
 		List<SvdField> fields = reg.getFields();
 
 		// If this is a register without fields, return the basic unsigned type...
@@ -143,7 +145,8 @@ public class SvdDataTypesCreateTask extends Task {
 			return new UnsignedLongDataType();
 
 		// Fields, insert bit fields at their exact bit offsets...
-		StructureDataType struct = new StructureDataType(reg.getName() + "_t", reg.getSize() / 8);
+		CategoryPath path = new CategoryPath("/" + periph.getName());
+		StructureDataType struct = new StructureDataType(path, reg.getName() + "_t", reg.getSize() / 8);
 		struct.setPackingEnabled(true);
 		fields.sort(Comparator.comparingInt(SvdField::getBitOffset));
 		int fieldNumber = 0;
