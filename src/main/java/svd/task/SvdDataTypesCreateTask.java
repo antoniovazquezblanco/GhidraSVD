@@ -186,6 +186,21 @@ public class SvdDataTypesCreateTask extends Task {
 				e.printStackTrace();
 			}
 		}
+
+		// Pad any trailing reserved bits to ensure the struct matches the full register width...
+		int trailingPadding = reg.getSize() - lastBitPos;
+		if (trailingPadding > 0)
+			try {
+				struct.insertBitField(fieldNumber++, reg.getSize(), lastBitPos, unsignedTypeForBits(reg.getSize()),
+						trailingPadding, "", "");
+			} catch (InvalidDataTypeException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IndexOutOfBoundsException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
 		return struct;
 	}
 
