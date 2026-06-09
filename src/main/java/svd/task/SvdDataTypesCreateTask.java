@@ -26,7 +26,10 @@ import ghidra.program.model.data.DataTypeConflictHandler;
 import ghidra.program.model.data.InvalidDataTypeException;
 import ghidra.program.model.data.ProgramBasedDataTypeManager;
 import ghidra.program.model.data.StructureDataType;
+import ghidra.program.model.data.UnsignedCharDataType;
 import ghidra.program.model.data.UnsignedLongDataType;
+import ghidra.program.model.data.UnsignedLongLongDataType;
+import ghidra.program.model.data.UnsignedShortDataType;
 import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.symbol.Namespace;
@@ -132,8 +135,8 @@ public class SvdDataTypesCreateTask extends Task {
 		for (SvdRegister reg : periph.getRegisters())
 			// TODO: Handle out of bounds values?
 			if (reg.getOffset() < block.getSize())
-				struct.replaceAtOffset(reg.getOffset(), createRegisterDataType(periph, reg), reg.getSize() / 8, reg.getName(),
-						reg.getDescription());
+				struct.replaceAtOffset(reg.getOffset(), createRegisterDataType(periph, reg), reg.getSize() / 8,
+						reg.getName(), reg.getDescription());
 		return struct;
 	}
 
@@ -142,7 +145,7 @@ public class SvdDataTypesCreateTask extends Task {
 
 		// If this is a register without fields, return the basic unsigned type...
 		if (fields == null || fields.isEmpty())
-			return new UnsignedLongDataType();
+			return unsignedTypeForBits(reg.getSize());
 
 		// Fields, insert bit fields at their exact bit offsets...
 		CategoryPath path = new CategoryPath("/" + periph.getName());
@@ -156,8 +159,8 @@ public class SvdDataTypesCreateTask extends Task {
 			int padding = field.getBitOffset() - lastBitPos;
 			if (padding > 0)
 				try {
-					struct.insertBitField(fieldNumber++, reg.getSize(), lastBitPos, new UnsignedLongDataType(), padding,
-							"", "");
+					struct.insertBitField(fieldNumber++, reg.getSize(), lastBitPos, unsignedTypeForBits(reg.getSize()),
+							padding, "", "");
 				} catch (InvalidDataTypeException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -175,14 +178,25 @@ public class SvdDataTypesCreateTask extends Task {
 
 			// Create the corresponding field...
 			try {
-				struct.insertBitField(fieldNumber++, reg.getSize(), field.getBitOffset(), new UnsignedLongDataType(),
-						field.getBitWidth(), field.getName(), field.getDescription());
+				struct.insertBitField(fieldNumber++, reg.getSize(), field.getBitOffset(),
+						unsignedTypeForBits(reg.getSize()), field.getBitWidth(), field.getName(),
+						field.getDescription());
 			} catch (InvalidDataTypeException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
 		return struct;
+	}
+
+	private DataType unsignedTypeForBits(int bits) {
+		if (bits <= 8)
+			return new UnsignedCharDataType();
+		if (bits <= 16)
+			return new UnsignedShortDataType();
+		if (bits <= 32)
+			return new UnsignedLongDataType();
+		return new UnsignedLongLongDataType();
 	}
 
 	private String getPeriphBlockDataTypeName(SvdPeripheral periph, SvdAddressBlock block) {
