@@ -2,6 +2,7 @@
 
 [![Build](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/main.yml/badge.svg)](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/main.yml)
 [![CodeQL](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/codeql.yml/badge.svg)](https://github.com/antoniovazquezblanco/GhidraSVD/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/antoniovazquezblanco/GhidraSVD/badge)](https://scorecard.dev/viewer/?uri=github.com/antoniovazquezblanco/GhidraSVD)
 
 <p align="center">
   <img width="400" src="doc/logo.png" alt="A red dragon tinkers with an IoT device">
