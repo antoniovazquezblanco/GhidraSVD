@@ -27,7 +27,7 @@ import ghidra.program.model.data.InvalidDataTypeException;
 import ghidra.program.model.data.ProgramBasedDataTypeManager;
 import ghidra.program.model.data.StructureDataType;
 import ghidra.program.model.data.UnsignedCharDataType;
-import ghidra.program.model.data.UnsignedLongDataType;
+import ghidra.program.model.data.UnsignedIntegerDataType;
 import ghidra.program.model.data.UnsignedLongLongDataType;
 import ghidra.program.model.data.UnsignedShortDataType;
 import ghidra.program.model.listing.Listing;
@@ -210,7 +210,7 @@ public class SvdDataTypesCreateTask extends Task {
 		if (bits <= 16)
 			return new UnsignedShortDataType();
 		if (bits <= 32)
-			return new UnsignedLongDataType();
+			return new UnsignedIntegerDataType();
 		return new UnsignedLongLongDataType();
 	}
 
