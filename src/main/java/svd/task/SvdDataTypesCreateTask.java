@@ -20,16 +20,16 @@ import java.util.List;
 
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.ByteDataType;
 import ghidra.program.model.data.CategoryPath;
+import ghidra.program.model.data.DWordDataType;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.DataTypeConflictHandler;
 import ghidra.program.model.data.InvalidDataTypeException;
 import ghidra.program.model.data.ProgramBasedDataTypeManager;
+import ghidra.program.model.data.QWordDataType;
 import ghidra.program.model.data.StructureDataType;
-import ghidra.program.model.data.UnsignedCharDataType;
-import ghidra.program.model.data.UnsignedIntegerDataType;
-import ghidra.program.model.data.UnsignedLongLongDataType;
-import ghidra.program.model.data.UnsignedShortDataType;
+import ghidra.program.model.data.WordDataType;
 import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.symbol.Namespace;
@@ -128,7 +128,7 @@ public class SvdDataTypesCreateTask extends Task {
 		createListingBlockData(dataType, periph, block);
 	}
 
-	private StructureDataType createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock block) {
+	static StructureDataType createPeripheralBlockDataType(SvdPeripheral periph, SvdAddressBlock block) {
 		String struct_name = getPeriphBlockDataTypeName(periph, block);
 		CategoryPath path = new CategoryPath("/" + periph.getName());
 		StructureDataType struct = new StructureDataType(path, struct_name, block.getSize().intValue());
@@ -140,7 +140,7 @@ public class SvdDataTypesCreateTask extends Task {
 		return struct;
 	}
 
-	private DataType createRegisterDataType(SvdPeripheral periph, SvdRegister reg) {
+	private static DataType createRegisterDataType(SvdPeripheral periph, SvdRegister reg) {
 		List<SvdField> fields = reg.getFields();
 
 		// If this is a register without fields, return the basic unsigned type...
@@ -204,17 +204,18 @@ public class SvdDataTypesCreateTask extends Task {
 		return struct;
 	}
 
-	private DataType unsignedTypeForBits(int bits) {
+	private static DataType unsignedTypeForBits(int bits) {
+		// Use fixed size types, C types like int or long change size with the program data organization...
 		if (bits <= 8)
-			return new UnsignedCharDataType();
+			return new ByteDataType();
 		if (bits <= 16)
-			return new UnsignedShortDataType();
+			return new WordDataType();
 		if (bits <= 32)
-			return new UnsignedIntegerDataType();
-		return new UnsignedLongLongDataType();
+			return new DWordDataType();
+		return new QWordDataType();
 	}
 
-	private String getPeriphBlockDataTypeName(SvdPeripheral periph, SvdAddressBlock block) {
+	private static String getPeriphBlockDataTypeName(SvdPeripheral periph, SvdAddressBlock block) {
 		String name = periph.getName();
 		String blockUsage = block.getUsage();
 		if (blockUsage != null && !blockUsage.isEmpty()) {
