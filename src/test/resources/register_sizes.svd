@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device schemaVersion="1.1" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" noNamespaceSchemaLocation="CMSIS-SVD.xsd">
+  <vendor>SomeVendor</vendor>
+  <name>DeviceName</name>
+  <version>1</version>
+  <description>Device with registers of every supported size</description>
+  <addressUnitBits>8</addressUnitBits>
+  <width>32</width>
+  <size>32</size>
+  <cpu>
+    <name>CM3</name>
+    <revision>r1p0</revision>
+    <endian>little</endian>
+    <mpuPresent>0</mpuPresent>
+    <fpuPresent>0</fpuPresent>
+    <nvicPrioBits>3</nvicPrioBits>
+    <vendorSystickConfig>0</vendorSystickConfig>
+  </cpu>
+  <peripherals>
+    <peripheral>
+      <name>PERIPH</name>
+      <description>Peripheral with 8, 16, 32 and 64 bit registers</description>
+      <baseAddress>0x40000000</baseAddress>
+      <addressBlock>
+        <offset>0</offset>
+        <size>0x18</size>
+        <usage>registers</usage>
+      </addressBlock>
+      <registers>
+        <register>
+          <name>CTRL</name>
+          <description>32 bit register without fields</description>
+          <addressOffset>0x00</addressOffset>
+        </register>
+        <register>
+          <name>CFG</name>
+          <description>32 bit register with fields and reserved bits</description>
+          <addressOffset>0x04</addressOffset>
+          <fields>
+            <field>
+              <name>EN</name>
+              <lsb>0</lsb>
+              <msb>0</msb>
+            </field>
+            <field>
+              <name>MODE</name>
+              <lsb>4</lsb>
+              <msb>7</msb>
+            </field>
+          </fields>
+        </register>
+        <register>
+          <name>COUNT</name>
+          <description>32 bit register with a field wider than 16 bits</description>
+          <addressOffset>0x08</addressOffset>
+          <fields>
+            <field>
+              <name>VALUE</name>
+              <lsb>0</lsb>
+              <msb>19</msb>
+            </field>
+          </fields>
+        </register>
+        <register>
+          <name>DATA16</name>
+          <description>16 bit register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>16</size>
+        </register>
+        <register>
+          <name>DATA8</name>
+          <description>8 bit register</description>
+          <addressOffset>0x0E</addressOffset>
+          <size>8</size>
+        </register>
+        <register>
+          <name>TIMESTAMP</name>
+          <description>64 bit register</description>
+          <addressOffset>0x10</addressOffset>
+          <size>64</size>
+        </register>
+      </registers>
+    </peripheral>
+  </peripherals>
+</device>
